@@ -114,7 +114,62 @@ expressions.filters.convertDateES = function(input, s) {
     }
 }
 
+expressions.filters.convertDateNL = function(input, s){
+var date = new Date(input);
+    if (date !== "Invalid Date") {
+        var monthsFull = ["januari", "februari", "maart", "april", "mei", "juni","juli","augustus","september","oktober", "november","december"];
+        var monthsShort = ["01", "02", "03", "04", "05", "06", "07", "08", "09","10","11","12"];
+        var days = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag","zaterdag"];
+        var day = date.getUTCDate();
+        var month = date.getUTCMonth();
+        var year = date.getUTCFullYear();
+        if (s === "full") {
+            return days[date.getUTCDay()] + " " + (day<10 ? '0'+day: day) + " " + monthsFull[month] + " " + year;
+        }
+        if (s === "short") {
+            return (day<10 ? '0'+day: day) + "/" + monthsShort[month] + "/" + year;
+        }
+    }
+}
 
+expressions.filters.nmapCleanup = function(input){
+var result =" ";
+if (input ==="None"|| input ==="undefined"){
+  return result;
+}
+ else{
+  return input;
+}
+}
+
+
+expressions.filters.convertseverity = function(input){
+    var result = "";
+    if (input === "Critical"){
+        result = "Kritiek";
+        return result;
+    }
+    if (input === "High"){
+        result = "Hoog";
+        return result;
+    }
+    if (input ==="Medium"){
+        result = "Midden";
+        return result;
+    }
+    if (input === "Low"){
+        result = "Laag";
+        return result;
+    }
+  if (input === "Informational"){
+     result = "Informationeel";
+     return result;
+    }
+    else{
+        return input;
+    }
+
+}
 
 exports.expressions = expressions
 
