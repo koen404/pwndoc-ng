@@ -1,9 +1,8 @@
 ### STAGE 1: Build ###
-FROM node:lts-alpine AS build
+FROM node:19.8.1-alpine3.16 AS build
 WORKDIR /app
-COPY package.json ./
-RUN npm install
 COPY . .
+RUN npm install
 RUN npm run build
 
 ### STAGE 2: Run ###

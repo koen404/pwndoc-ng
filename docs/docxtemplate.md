@@ -1,8 +1,8 @@
 # Docx Template
 
-Pwndoc uses the nodejs library docxtemplater to generate a docx report. Specific documentation can be found on the official site documentation: https://docxtemplater.readthedocs.io/en/v3.1.0/tag_types.html
+Pwndoc-ng uses the nodejs library docxtemplater to generate a docx report. Specific documentation can be found on the official site documentation: https://docxtemplater.readthedocs.io/en/v3.1.0/tag_types.html
 
-Check the [Default Template](https://github.com/pwndoc/pwndoc/tree/master/backend/report-templates) for better understanding.
+Check the [Default Template](https://github.com/pwndoc-ng/pwndoc-ng/tree/master/backend/report-templates) for better understanding.
 
 ## Different Tags
 
@@ -66,10 +66,6 @@ Name of the audit
 ### auditType
 Type of the audit. See [Custom Data](/data?id=audit-types)
 > Use in template document: `{auditType}`
-
-### location
-Location of the audit
-> Use in template document: `{location}`
 
 ### date
 Redacting date
@@ -281,7 +277,7 @@ The *numbering.xml* file contains definitions of numbering lists.
 `<w:abstractNum w:abstractNumId=0>...</w:abstractNum>` tags represent the definition of a numbering with its different levels.
 `<w:num w:numId="1"><w:abstractNumId w:val="0" /></w:num>` tags associate the effective `Id` used in the document with the `abstract Id` of the definition.
 
-Pwndoc uses `numId="1"` for `bullet list` and `numId="2"` for `ordered list`. So the only thing to change in the file is the value of the abstractNumId associated with those numId.
+Pwndoc-ng uses `numId="1"` for `bullet list` and `numId="2"` for `ordered list`. So the only thing to change in the file is the value of the abstractNumId associated with those numId.
 
 If there is no abstractNum definitions, this means that no numbering has been used in the document: open the document with Word, add bullet and ordered list, save, delete bullet and ordered list, save.
 There should now be abstractNum definition for each one.
@@ -678,3 +674,77 @@ Creates Page Break
 >```
 {@$pageBreakExceptLast}
 >```
+
+## F.A.Q.
+
+### I'd like to make a condition on existing vulnerability severity.
+
+You can use the following:
+
+> Use in template document
+>```
+> {#findings | count: 'High'}
+> There is at least one High vulnerability
+> {/}
+>```
+
+See [#81](https://github.com/pwndoc-ng/pwndoc-ng/issues/81).
+
+### I'd like to parse a specific part of a complexe text field.
+
+You can develop your own custom filter (see [custom-generator.js](https://github.com/pwndoc-ng/pwndoc-ng/blob/master/backend/src/lib/custom-generator.js) and [report-generator.js](https://github.com/pwndoc-ng/pwndoc-ng/blob/master/backend/src/lib/report-generator.js#L110)) OR use custom fields instead.
+
+### I want my text to render with a defined style.
+
+You can use the [`p`](/pwndoc-ng/#/docxtemplate?id=p) filter which render an input with a given style:
+
+> Use in template document
+>```
+> {@input | p: 'Some style'}
+>```
+
+Note: spaces and specials chars may be removed from your style name. You can verify the differents styles using the following trick:
+
+1. Rename template `.docx` to `.zip`.
+2. Extract archive
+3. Open `word/styles.xml`
+4. Inspect the differents styles names (`styleId` fields).
+
+### I want to get the index of an element in a loop
+
+Pwndoc-NG use a custom angular parser which provide syntaxes such as [$index](https://docxtemplater.com/docs/angular-parse/#retrieving-index-as-part-of-an-expression).
+
+> Use in template document
+>```
+> {#names}
+> {#$index == 0}First item !{/}
+> {names[$index]}
+> {ages[$index]}
+> {/names}
+>```
+
+### I want to parse a simple list
+
+Simple list are less documented than dict. Therefore you may strugle with parsing simple list.
+You may have the following solutions:
+
+1. use the `{.}` syntaxe which refer to the current element in a loop;
+2. use the `| loopObject` filter which transform a list into a dict;
+3. use the `$index` variable and refere the element as `list[$index]`.
+
+> Use in template document
+>```
+> {#references}
+> {.}
+> {/}
+>
+> {#references | loopObject}
+> {@value | linkTo: value | p}
+> {/}
+>```
+
+### List and numbered list are buggy.
+
+List and numbered list formating are [based on the XML contained in the Docx template](/pwndoc-ng/#/docxtemplate?id=styles). 
+
+You'll have to adapt this XML. See [this comment](https://github.com/pwndoc-ng/pwndoc-ng/issues/67#issuecomment-1461720588).

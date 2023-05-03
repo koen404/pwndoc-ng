@@ -1,6 +1,6 @@
 # Data
 
-> Pwndoc uses different kinds of data to improve and mutualize user experience. This allows to have reusable and customizable information across audits.
+> Pwndoc-ng uses different kinds of data to improve and mutualize user experience. This allows to have reusable and customizable information across audits.
 
 ![Data](_images/collaborators.png)
 
@@ -72,11 +72,11 @@ A Template is defined by:
 
 Custom Data represent a way to fully customize Audits and Vulnerabilities. They are editable and their order can be changed to personalize how they will be displayed for users.
 
-!> Values must match this regex:  `/^[A-zÀ-ú0-9 \[\]\'()_-]+$/`
+!> Values must match this regex:  `/^[\p{Letter}\p{Mark}0-9 \[\]'()_-]+$/iu`
 
 ### Languages
 
-Pwndoc can handle multiple Languages when it comes to Custom Data or Vulnerabilities. It's one of the first things to create before being able to start an Audit.
+Pwndoc-ng can handle multiple Languages when it comes to Custom Data or Vulnerabilities. It's one of the first things to create before being able to start an Audit.
 
 A Language is defined by:
 

@@ -227,8 +227,31 @@
             @click="editor.chain().focus().toggleStrike().run()"
           >
             <q-tooltip :delay="500" content-class="text-bold">Strike</q-tooltip>
+
             <q-icon name="format_strikethrough" />
           </q-btn>
+          <q-btn
+            flat
+            size="sm"
+            dense
+            :class="{ 'is-active': editor.isActive('link') }"
+            @click="setLink"
+          >
+            <q-tooltip :delay="500" content-class="text-bold">set a link</q-tooltip>
+            <q-icon name="mdi-link" />
+          </q-btn>
+      <q-btn
+            flat
+            size="sm"
+            dense
+            @click="editor.chain().focus().unsetLink().run()"
+            :disabled="!editor.isActive('link') "
+          >
+            <q-tooltip :delay="500" content-class="text-bold">unset a link</q-tooltip>
+            <q-icon name="mdi-link-off" />
+          </q-btn>
+
+
           <!-- Strike button end -->
         </div>
 
@@ -486,6 +509,30 @@
       </q-toolbar>
     </affix>
     <q-separator />
+     <bubble-menu
+      class="editor-bubble-menu"
+      :editor="editor"
+      :tippy-options="{ duration: 100 }"
+      v-if="editor"
+    >
+      <button @click="editor.chain().focus().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }">
+        <q-icon name="format_bold" />
+      </button>
+      <button @click="editor.chain().focus().toggleItalic().run()" :class="{ 'is-active': editor.isActive('italic') }">
+        <q-icon name="format_italic" />
+      </button>
+      <button @click="editor.chain().focus().toggleStrike().run()" :class="{ 'is-active': editor.isActive('strike') }">
+        <q-icon name="format_strikethrough" />
+      </button>
+      <button :class="{ 'is-active': editor.isActive('code') }"   @click="editor.chain().focus().toggleCode().run()" >
+        <q-icon name="code" />
+      </button>
+      <button   @click="editor.isActive('link') ? editor.chain().focus().unsetLink().run() : setLink()" >
+        <q-icon :name="editor.isActive('link') ? 'mdi-link-off' : 'mdi-link' " />
+      </button>
+
+
+    </bubble-menu>
     <editor-content
       v-if="typeof diff === 'undefined' || !toggleDiff"
       class="editor__content q-pa-sm"
@@ -498,7 +545,7 @@
 </template>
 
 <script>
-import { Editor, EditorContent } from "@tiptap/vue-2";
+import { Editor, EditorContent, BubbleMenu } from "@tiptap/vue-2";
 //  Import extensions
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
@@ -507,6 +554,7 @@ import Table from "@tiptap/extension-table";
 import TableCell from "@tiptap/extension-table-cell";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
+import Link from "@tiptap/extension-link";
 import CustomImage from "./editor-image";
 //import Caption from "./editor-caption";
 import { Figure } from "./figure";
@@ -528,6 +576,10 @@ export default {
   props: {
     value: String,
     editable: {
+      type: Boolean,
+      default: true,
+    },
+    collab: {
       type: Boolean,
       default: true,
     },
@@ -554,9 +606,11 @@ export default {
       type: Boolean,
       default: false,
     },
+
   },
   components: {
     EditorContent,
+    BubbleMenu
   },
   data() {
     return {
@@ -568,6 +622,8 @@ export default {
       status: 'connecting',
       state:false,
       fullId:"",
+      countChange:0,
+      countChangeAfterUpdate:-1,
       initialeDataUpdated:false,
       htmlEncode: Utils.htmlEncode,
     };
@@ -579,7 +635,7 @@ export default {
     },
     editable(value) {
       //this.editor.setOptions({ editable: this.editable });
-      this.editor.setEditable(this.editable);
+      this.editor.setEditable(this.editable && this.initialeDataUpdated);
     },
   },
 
@@ -598,33 +654,15 @@ export default {
         this.fullId= this.$route.params.auditId+'-'+this.$route.params.findingId+'-'+this.ClassEditor
      }
 
-     this.provider = new HocuspocusProvider({
-      url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
-      name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
-      document  : ydoc
-    })
-    this.provider.on('status', event => {
-      this.status = event.status
-    })
-    this.provider.on('synced', state => {
-      this.state=state.state
-    })
-    this.editor = new Editor({
-      extensions: [
+    let extensionEditor = [
         StarterKit,
         Highlight.configure({
           multicolor: true,
         }),
-        Collaboration.configure({
-          document: ydoc,
-          field: this.fullId
-        }),
-        CollaborationCursor.configure({
-          provider: this.provider,
-          user: {
-            name:  this.username,
-            color:  this.stringToColour(this.username)
-          }
+        Link.configure({
+          protocols: ['ftp', 'mailto'],
+             linkOnPaste: false,
+              openOnClick: false,
         }),
         Underline,
         TableRow,
@@ -637,13 +675,53 @@ export default {
           HTMLAttributes: {
             class: "custom-image",
           },
+          allowBase64: true
         }),
         Figure,
-        //Caption,
-        //CustomImage,
-      ],
+      ]
+
+     if(this.collab){
+       this.provider = new HocuspocusProvider({
+        url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
+        name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
+        document  : ydoc
+      })
+
+      this.provider.on('status', event => {
+        this.status = event.status
+      })
+      this.provider.on('synced', state => {
+        this.state=state.state
+      })
+      extensionEditor.push(Collaboration.configure({
+          document: ydoc,
+          field: this.fullId
+      }))
+      extensionEditor.push(CollaborationCursor.configure({
+          provider: this.provider,
+          user: {
+            name:  this.username,
+            color:  this.stringToColour(this.username)
+          }
+      }))
+
+    } else {
+      this.state=true
+      this.status = 'connected'
+
+    }
+
+    this.editor = new Editor({
+      editable: false,
+      extensions: extensionEditor ,
       onUpdate: () => {
         console.log("onUpdate");
+        if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
+           this.$emit('editorchange') // need save only if sync is done
+        } else {
+          this.countChange++
+        }
+        
         if (this.noSync) return;
         this.updateHTML();
       },
@@ -652,7 +730,7 @@ export default {
     });
     this.affixRelativeElement += "-" +  this.ClassEditor;
     //this.editor.setOptions({ editable: this.editable });
-    this.editor.setEditable(this.editable);
+    this.editor.setEditable(this.editable && this.initialeDataUpdated);
     if (
       typeof this.value === "undefined" ||
       this.value === this.editor.getHTML()
@@ -722,24 +800,65 @@ export default {
       return content;
     },
   },
+
  
   methods: {
     async updateInitialeValue(value){
-      if(this.initialeDataUpdated==false && value!=''){
-        for (let i = 0; i < 26; i++) { // 5 second to connect web socket failed after
-          if(this.status=='connected' && this.state){
-            if(this.editor.getHTML() != value && this.editor.getHTML()=='<p></p>'){
-              var content = this.htmlEncode(value);
-              this.editor.commands.setContent(content, true);
+    if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
+      // if editor is init not in vuln edit context like cutom field
+      this.editor.commands.setContent(value, false);
+      this.initialeDataUpdated=true
+      this.editor.setEditable(this.editable && this.initialeDataUpdated);
+      this.$emit('ready')
+      this.countChangeAfterUpdate=this.countChange
+    } else {
+      if(this.initialeDataUpdated==false){
+          for (let i = 0; i < 200; i++) { // 25 second to connect web socket failed after
+            if(this.status=='connected' && this.state){
+              if(this.editor.getHTML() != value && this.editor.getHTML()=='<p></p>'){
+                this.editor.commands.setContent(value, false);
+              }
+              this.initialeDataUpdated=true
+              this.editor.setEditable(this.editable && this.initialeDataUpdated);
+              this.$emit('ready')
+              this.countChangeAfterUpdate=this.countChange
+              break;
+            } else {
+              await this.sleep(500)
+              console.log('Wait websocket')
             }
-            this.initialeDataUpdated=true
-            break;
-          } else {
-            await this.sleep(200)
-            console.log('Wait websocket')
           }
         }
       } 
+    },
+    setLink(){
+      const previousUrl = this.editor.getAttributes('link').href
+      const url = window.prompt('URL', previousUrl)
+
+      // cancelled
+      if (url === null) {
+        return
+      }
+
+      // empty
+      if (url === '') {
+        this.editor
+          .chain()
+          .focus()
+          .extendMarkRange('link')
+          .unsetLink()
+          .run()
+
+        return
+      }
+
+      // update link
+      this.editor
+        .chain()
+        .focus()
+        .extendMarkRange('link')
+        .setLink({ href: url })
+        .run()
     },
     sleep(milliseconds) {
       return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -1021,5 +1140,39 @@ pre .diffrem {
 }
 pre .diffadd {
   background-color: $green-6;
+}
+
+.editor-bubble-menu{
+   background: #333333;
+    color: white;
+    border-radius: 8px;
+    padding: 5px;
+    margin: -5px;
+    display: flex;
+}
+
+.editor-bubble-menu > button > i{
+  border-radius: 5px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #ffffff;
+}
+
+.editor-bubble-menu > button > i:hover{
+        background: #555555;
+        color: #ffffff;
+        cursor: pointer;
+}
+.editor-bubble-menu > .is-active > i {
+        background: #555555;
+        color: #ffffff;
+        cursor: pointer;
+}
+.editor-bubble-menu > button {
+  background: bottom;
+    border: none;
 }
 </style>

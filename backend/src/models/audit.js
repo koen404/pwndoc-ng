@@ -59,7 +59,6 @@ var SortOption = {
 var AuditSchema = new Schema({
     name:               {type: String, required: true},
     auditType:          String,
-    location:           String,
     date:               String,
     date_start:         String,
     date_end:           String,
@@ -105,6 +104,28 @@ AuditSchema.statics.getAudits = (isAdmin, userId, filters) => {
         })
     })
 }
+
+// Get all audits for download
+/*
+AuditSchema.statics.export = () => {
+    return new Promise((resolve, reject) => {
+        var query = Audit.find()
+        query.populate('creator', 'username')
+        query.populate('collaborators', 'username')
+        query.populate('reviewers', 'username firstname lastname')
+        query.populate('approvals', 'username firstname lastname')
+        query.populate('company', 'name')
+        query.select('id name language creator collaborators company createdAt state')
+        query.exec()
+        .then((rows) => {
+            resolve(rows)
+        })
+        .catch((err) => {
+            reject(err)
+        })
+    });
+}
+*/
 
 // Get Audit with ID to generate report
 AuditSchema.statics.getAudit = (isAdmin, auditId, userId) => {
@@ -278,8 +299,8 @@ AuditSchema.statics.getGeneral = (isAdmin, auditId, userId) => {
         query.populate('collaborators', 'username firstname lastname')
         query.populate('reviewers', 'username firstname lastname')
         query.populate('company')
-        query.select('name auditType location date date_start date_end client collaborators language scope.name template customFields')
-        query.exec()
+        query.select('name auditType date date_start date_end client collaborators language scope.name template customFields')
+        query.lean().exec()
         .then((row) => {
             if (!row)
                 throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'});
@@ -397,7 +418,7 @@ AuditSchema.statics.createFinding = (isAdmin, auditId, userId, finding) => {
 
 AuditSchema.statics.getLastFindingIdentifier = (auditId) => {
     return new Promise((resolve, reject) => {
-        var query = Audit.aggregate([{ $match: {_id: mongoose.Types.ObjectId(auditId)} }])
+        var query = Audit.aggregate([{ $match: {_id: new mongoose.Types.ObjectId(auditId)} }])
         query.unwind('findings')
         query.sort({'findings.identifier': -1})
         query.exec()

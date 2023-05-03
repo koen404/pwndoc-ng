@@ -1,6 +1,6 @@
 var fs = require('fs');
 var Docxtemplater = require('docxtemplater');
-var JSZip = require('jszip');
+var PizZip = require("pizzip");
 var expressions = require('angular-expressions');
 var ImageModule = require('docxtemplater-image-module-pwndoc');
 var sizeOf = require('image-size');
@@ -19,7 +19,7 @@ async function generateDoc(audit) {
     var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
     var content = fs.readFileSync(templatePath, "binary");
 
-    var zip = new JSZip(content);
+    var zip = new PizZip(content);
 
     translate.setLocale(audit.language)
     $t = translate.translate
@@ -387,6 +387,12 @@ expressions.filters.sort = function(input, key = null) {
         });
     }
 }
+expressions.filters.sortDESC = function(input, key = null) {
+    return  _.sortBy(input, o => _.get(o,key)).reverse()
+}
+expressions.filters.sortASC = function(input=null, key = null) {
+    return  _.sortBy(input, o =>  _.get(o,key))
+}
 
 // Sort array by supplied field: {#findings | sortArrayByField: 'identifier':1}{/}
 // order: 1 = ascending, -1 = descending
@@ -731,7 +737,6 @@ async function prepAuditData(data, settings) {
     var result = {}
     result.name = data.name || "undefined"
     result.auditType = $t(data.auditType) || "undefined"
-    result.location = data.location || "undefined"
     result.date = data.date || "undefined"
     result.date_start = data.date_start || "undefined"
     result.date_end = data.date_end || "undefined"

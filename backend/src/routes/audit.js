@@ -46,12 +46,30 @@ module.exports = function(app, io) {
         .catch(err => Response.Internal(res, err))
     });
 
+
+    
+    // Get clients for export
+    /*
+    app.get("/api/audits/export", acl.hasPermission('audits:read-all'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        Audit.export()
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
+    */
+
     // Create audit with name, auditType, language provided
     app.post("/api/audits", acl.hasPermission('audits:create'), function(req, res) {
         // #swagger.tags = ['Audit']
 
         if (!req.body.name || !req.body.language || !req.body.auditType) {
             Response.BadParameters(res, 'Missing some required parameters: name, language, auditType');
+            return;
+        }
+
+        if (!utils.validFilename(req.body.language)) {
+            Response.BadParameters(res, 'Invalid characters for language');
             return;
         }
 
@@ -164,7 +182,6 @@ module.exports = function(app, io) {
 
         // Optional parameters
         if (req.body.name) update.name = req.body.name;
-        if (req.body.location) update.location = req.body.location;
         if (req.body.date) update.date = req.body.date;
         if (req.body.date_start) update.date_start = req.body.date_start;
         if (req.body.date_end) update.date_end = req.body.date_end;
@@ -180,7 +197,7 @@ module.exports = function(app, io) {
         }
         if (req.body.collaborators) update.collaborators = req.body.collaborators;
         if (req.body.reviewers) update.reviewers = req.body.reviewers;
-        if (req.body.language) update.language = req.body.language;
+        if (req.body.language && utils.validFilename(req.body.language)) update.language = req.body.language;
         if (req.body.scope && typeof(req.body.scope === "array")) {
             update.scope = req.body.scope.map(item => {return {name: item}});
         }

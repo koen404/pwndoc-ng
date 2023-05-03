@@ -63,17 +63,32 @@ var checkTotpToken = function(token, secret) {
 */
 
 // Create user
-UserSchema.statics.create = function (user) {
-    return new Promise((resolve, reject) => {
-        var hash = bcrypt.hashSync(user.password, 10);
-        user.password = hash;
-        new User(user).save()
-        .then(function() {
-            resolve();
+UserSchema.statics.create = function (users) {
+    return new Promise(async(resolve, reject) => {
+        for (var i=0; i< users.length; i++) {
+            // Only hash password when it's not already hashed.
+            // Usefull to import users with hashed password (yml file).
+            if (users[i].password.length == 60 && users[i].password.startsWith("$2b$10$")) {
+                continue;
+            } else {
+                users[i].password = bcrypt.hashSync(users[i].password, 10);
+            }
+        }
+        
+        User.insertMany(users, {ordered: false})
+        .then((rows) => {
+            resolve({created: rows.length, duplicates: 0});
         })
-        .catch(function(err) {
-            if (err.code === 11000)
-                reject({fn: 'BadParameters', message: 'Username already exists'});
+        .catch((err) => {
+            if (err.code === 11000) {
+                if (err.result.nInserted === 0)
+                    reject({fn: 'BadParameters', message: 'Username already exists'});
+                else {
+                    var errorMessages = [] 
+                    err.writeErrors.forEach(e => errorMessages.push(e.errmsg || "no errmsg"))
+                    resolve({created: err.result.nInserted, duplicates: errorMessages});
+                }
+            }
             else
                 reject(err);
         })
@@ -90,6 +105,21 @@ UserSchema.statics.getAll = function () {
             resolve(rows);
         })
         .catch(function(err) {
+            reject(err);
+        })
+    });
+}
+
+// Get all users for download
+UserSchema.statics.export = () => {
+    return new Promise((resolve, reject) => {
+        var query = User.find();
+        query.select('username password firstname lastname email phone role totpEnabled enabled -_id')
+        query.exec()
+        .then((rows) => {
+            resolve(rows);
+        })
+        .catch((err) => {
             reject(err);
         })
     });
@@ -245,7 +275,7 @@ UserSchema.statics.updateRefreshToken = function (refreshToken, userAgent) {
                 return row.save()
             }
             else if (row) {
-                reject({fn: 'Unauthorized', message: 'Account disabled'})
+                reject({fn: 'Unauthorized', message: 'Authentication Failed.'})
             }
             else
                 reject({fn: 'NotFound', message: 'Session not found'})
@@ -384,8 +414,15 @@ UserSchema.methods.getToken = function (userAgent) {
                 var refreshToken = jwt.sign({sessionId: null, userId: row._id}, auth.jwtRefreshSecret)
                 return User.updateRefreshToken(refreshToken, userAgent)
             }
-            else
-                throw({fn: 'Unauthorized', message: 'Invalid credentials'});
+            else {
+                if (!row) {
+                    // We compare two random strings to generate delay
+                    var randomHash = "$2b$10$" + [...Array(53)].map(() => Math.random().toString(36)[2]).join('');
+                    bcrypt.compareSync(user.password, randomHash);
+                }
+
+                throw({fn: 'Unauthorized', message: 'Authentication Failed.'});
+            }
         })
         .then(row => {
             resolve({token: row.token, refreshToken: row.refreshToken})
